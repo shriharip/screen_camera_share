@@ -153,8 +153,29 @@
         <canvas id="canvas"></canvas>
     </div>
 
+    <!-- Socket.IO with CDN fallback -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // Fallback to CDN if local Socket.IO fails to load
+        if (typeof io === 'undefined') {
+            console.warn('Local Socket.IO failed, loading from CDN...');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+            script.onload = () => {
+                console.log('Socket.IO loaded from CDN');
+                initializeApp();
+            };
+            script.onerror = () => {
+                console.error('Failed to load Socket.IO from CDN');
+                showStatus('Connection failed: Socket.IO could not be loaded', 'error');
+            };
+            document.head.appendChild(script);
+        } else {
+            // Socket.IO loaded successfully from server
+            initializeApp();
+        }
+        
+        // DOM elements
         const startBtn = document.getElementById('startBtn');
         const captureBtn = document.getElementById('captureBtn');
         const stopBtn = document.getElementById('stopBtn');
@@ -165,12 +186,15 @@
         const status = document.getElementById('status');
         const cameraSection = document.getElementById('cameraSection');
 
+        // Global variables
         let stream = null;
         let socket = null;
         let peerConnections = new Map();
-        let pendingIceCandidates = new Map(); // Queue ICE candidates until remote description is set
+        let pendingIceCandidates = new Map();
         let availableCameras = [];
         let currentCameraId = null;
+        
+        function initializeApp() {
 
         function showStatus(message, type = 'success') {
             status.innerHTML = `<div class="${type}">${message}</div>`;
@@ -631,10 +655,38 @@
 
         // Camera switching is now handled by radio button change events
 
-        // Initialize socket connection
-        initializeSocket();
+            // Check server connectivity first
+            console.log('🚀 Checking server connectivity...');
+            
+            fetch('/api/photos')
+                .then(response => {
+                    if (response.ok) {
+                        console.log('✅ Server is reachable');
+                        // Initialize socket connection
+                        initializeSocket();
+                    } else {
+                        console.error('❌ Server responded with:', response.status);
+                        showStatus(`Server error (${response.status}). Please refresh the page.`, 'error');
+                        
+                        // Try socket anyway after delay
+                        setTimeout(() => {
+                            console.log('🔄 Trying Socket.IO anyway...');
+                            initializeSocket();
+                        }, 2000);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Cannot reach server:', error);
+                    showStatus('Server connection failed. Trying Socket.IO...', 'error');
+                    
+                    // Try socket anyway after delay
+                    setTimeout(() => {
+                        console.log('🔄 Trying Socket.IO anyway...');
+                        initializeSocket();
+                    }, 2000);
+                });
 
-        startBtn.addEventListener('click', async () => {
+            startBtn.addEventListener('click', async () => {
             try {
                 // Debug information
                 console.log('Navigator object:', navigator);
@@ -759,23 +811,24 @@
             }, 'image/png');
         });
 
-        stopBtn.addEventListener('click', () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
-                cameraSection.style.display = 'none';
-                startBtn.disabled = false;
-                showStatus('Camera stopped');
+            stopBtn.addEventListener('click', () => {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    video.srcObject = null;
+                    cameraSection.style.display = 'none';
+                    startBtn.disabled = false;
+                    showStatus('Camera stopped');
 
-                // Close all peer connections
-                peerConnections.forEach(pc => pc.close());
-                peerConnections.clear();
-                pendingIceCandidates.clear();
+                    // Close all peer connections
+                    peerConnections.forEach(pc => pc.close());
+                    peerConnections.clear();
+                    pendingIceCandidates.clear();
 
-                // Notify server that camera is stopped
-                socket.emit('client-stopped');
-            }
-        });
+                    // Notify server that camera is stopped
+                    socket.emit('client-stopped');
+                }
+            });
+        } // End of initializeApp function
     </script>
 </body>
 

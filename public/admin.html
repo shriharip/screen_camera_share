@@ -208,13 +208,34 @@
 
     <div id="notification" class="notification"></div>
 
+    <!-- Socket.IO with CDN fallback -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
-        let photos = [];
-        let activeStreams = new Map();
-        let peerConnections = new Map();
-        let pendingIceCandidates = new Map(); // Queue ICE candidates until remote description is set
+        // Fallback to CDN if local Socket.IO fails to load
+        if (typeof io === 'undefined') {
+            console.warn('Local Socket.IO failed, loading from CDN...');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+            script.onload = () => {
+                console.log('Socket.IO loaded from CDN');
+                initializeAdminApp();
+            };
+            script.onerror = () => {
+                console.error('Failed to load Socket.IO from CDN');
+                showNotification('Connection failed: Socket.IO could not be loaded');
+            };
+            document.head.appendChild(script);
+        } else {
+            // Socket.IO loaded successfully from server
+            initializeAdminApp();
+        }
+        
+        function initializeAdminApp() {
+            const socket = io();
+            let photos = [];
+            let activeStreams = new Map();
+            let peerConnections = new Map();
+            let pendingIceCandidates = new Map(); // Queue ICE candidates until remote description is set
 
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 B';
@@ -547,8 +568,9 @@
             }, 500);
         }
         
-        // Load photos on page load
-        loadPhotos();
+            // Load photos on page load
+            loadPhotos();
+        } // End of initializeAdminApp function
     </script>
 </body>
 
