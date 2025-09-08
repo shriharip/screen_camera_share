@@ -476,34 +476,114 @@
                     stream.getTracks().forEach(track => track.stop());
                 }
 
-                const constraints = {
+                let constraints = {
                     video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
+                        width: { ideal: 640, min: 320, max: 1920 },
+                        height: { ideal: 480, min: 240, max: 1080 },
+                        frameRate: { ideal: 30, min: 10, max: 60 }
                     },
                     audio: false
                 };
 
                 // Add device constraint if specified
                 if (deviceId) {
+                    console.log('🎯 Trying to start specific camera:', deviceId);
+                    
+                    // Try with exact device ID first
                     constraints.video.deviceId = { exact: deviceId };
-                    currentCameraId = deviceId;
-                } else if (availableCameras.length > 0) {
-                    // Default to first available camera
-                    constraints.video.deviceId = { exact: availableCameras[0].deviceId };
-                    currentCameraId = availableCameras[0].deviceId;
+                    
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        currentCameraId = deviceId;
+                        console.log('✅ Started camera with exact constraint');
+                    } catch (exactError) {
+                        console.warn('⚠️ Exact device constraint failed, trying ideal:', exactError.name);
+                        
+                        // Fallback to ideal constraint
+                        constraints.video.deviceId = { ideal: deviceId };
+                        
+                        try {
+                            stream = await navigator.mediaDevices.getUserMedia(constraints);
+                            currentCameraId = deviceId;
+                            console.log('✅ Started camera with ideal constraint');
+                        } catch (idealError) {
+                            console.warn('⚠️ Ideal constraint failed, trying basic video:', idealError.name);
+                            
+                            // Last fallback - just basic video
+                            constraints = { video: true, audio: false };
+                            stream = await navigator.mediaDevices.getUserMedia(constraints);
+                            
+                            // Try to get the actual device ID
+                            const track = stream.getVideoTracks()[0];
+                            if (track && track.getSettings) {
+                                const settings = track.getSettings();
+                                currentCameraId = settings.deviceId || null;
+                            }
+                            console.log('✅ Started camera with basic constraints');
+                        }
+                    }
+                } else {
+                    console.log('🎯 Starting default camera');
+                    
+                    try {
+                        // Don't specify exact device for initial start
+                        stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        
+                        // Get the actual device ID that was selected
+                        const track = stream.getVideoTracks()[0];
+                        if (track && track.getSettings) {
+                            const settings = track.getSettings();
+                            currentCameraId = settings.deviceId || null;
+                            console.log('✅ Started default camera, device ID:', currentCameraId);
+                        }
+                    } catch (constraintError) {
+                        console.warn('⚠️ Detailed constraints failed, trying basic:', constraintError.name);
+                        
+                        // Fallback to very basic constraints
+                        constraints = { video: true, audio: false };
+                        stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        
+                        const track = stream.getVideoTracks()[0];
+                        if (track && track.getSettings) {
+                            const settings = track.getSettings();
+                            currentCameraId = settings.deviceId || null;
+                        }
+                        console.log('✅ Started camera with basic fallback');
+                    }
                 }
 
-                stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
+
+                // Log stream info for debugging
+                const track = stream.getVideoTracks()[0];
+                if (track) {
+                    console.log('📹 Stream info:', {
+                        label: track.label,
+                        settings: track.getSettings ? track.getSettings() : 'Not available',
+                        constraints: track.getConstraints ? track.getConstraints() : 'Not available'
+                    });
+                }
 
                 // Update peer connections with new stream
                 updatePeerConnectionStreams();
 
                 return true;
             } catch (error) {
-                console.error('Error starting camera:', error);
-                throw error;
+                console.error('❌ Error starting camera:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                
+                // Provide user-friendly error messages
+                let userMessage = 'Failed to start camera';
+                if (error.name === 'OverconstrainedError') {
+                    userMessage = 'Camera settings not supported. Trying with different settings...';
+                } else if (error.name === 'NotAllowedError') {
+                    userMessage = 'Camera access denied. Please allow camera permissions.';
+                } else if (error.name === 'NotFoundError') {
+                    userMessage = 'No camera found. Please connect a camera.';
+                }
+                
+                throw new Error(userMessage);
             }
         }
 
@@ -639,9 +719,13 @@
                     errorMessage = 'Camera access is not supported in this browser.';
                 } else if (error.name === 'NotReadableError') {
                     errorMessage = 'Camera is already in use by another application.';
+                } else if (error.name === 'OverconstrainedError') {
+                    errorMessage = 'Camera settings not supported. The app will try with basic settings.';
+                    console.log('OverconstrainedError details:', error.constraint);
                 }
 
                 showStatus(`Error accessing camera: ${errorMessage}`, 'error');
+                console.error('Full error details:', error);
             }
         });
 
