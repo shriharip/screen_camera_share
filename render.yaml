@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: camera-streaming-app
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: uploads
+      mountPath: /app/uploads
+      sizeGB: 1
