@@ -1,0 +1,46 @@
+# Node modules
+node_modules
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# IDE files
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# Uploads directory (will be created at runtime)
+uploads/*
+!uploads/.gitkeep
+
+# Development files
+docker-compose.yml
+Dockerfile
+.dockerignore
