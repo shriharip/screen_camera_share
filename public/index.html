@@ -163,7 +163,8 @@
             script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
             script.onload = () => {
                 console.log('Socket.IO loaded from CDN');
-                initializeApp();
+                // Small delay to ensure DOM is ready
+                setTimeout(initializeApp, 100);
             };
             script.onerror = () => {
                 console.error('Failed to load Socket.IO from CDN');
@@ -172,21 +173,11 @@
             document.head.appendChild(script);
         } else {
             // Socket.IO loaded successfully from server
-            initializeApp();
+            // Small delay to ensure DOM is ready
+            setTimeout(initializeApp, 100);
         }
         
-        // DOM elements (declared at top level)
-        const startBtn = document.getElementById('startBtn');
-        const captureBtn = document.getElementById('captureBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const cameraSelector = document.getElementById('cameraSelector');
-        const cameraOptions = document.getElementById('cameraOptions');
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const status = document.getElementById('status');
-        const cameraSection = document.getElementById('cameraSection');
-
-        // Global variables
+        // Global variables (declared at top level)
         let stream = null;
         let socket = null;
         let peerConnections = new Map();
@@ -194,9 +185,16 @@
         let availableCameras = [];
         let currentCameraId = null;
         
+        // DOM elements (will be initialized in initializeApp)
+        let startBtn, captureBtn, stopBtn, cameraSelector, cameraOptions, video, canvas, status, cameraSection;
+        
         // Utility functions (declared at top level)
         function showStatus(message, type = 'success') {
-            status.innerHTML = `<div class="${type}">${message}</div>`;
+            if (status) {
+                status.innerHTML = `<div class="${type}">${message}</div>`;
+            } else {
+                console.log(`Status: ${message}`);
+            }
         }
 
         // Check if we're on HTTPS or localhost
@@ -653,6 +651,25 @@
 
         function initializeApp() {
             console.log('🚀 Initializing app...');
+            
+            // Initialize DOM elements
+            startBtn = document.getElementById('startBtn');
+            captureBtn = document.getElementById('captureBtn');
+            stopBtn = document.getElementById('stopBtn');
+            cameraSelector = document.getElementById('cameraSelector');
+            cameraOptions = document.getElementById('cameraOptions');
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            status = document.getElementById('status');
+            cameraSection = document.getElementById('cameraSection');
+            
+            // Check if all elements were found
+            if (!startBtn || !status) {
+                console.error('❌ Required DOM elements not found');
+                return;
+            }
+            
+            console.log('✅ DOM elements initialized');
             
             // Check secure context first
             if (!checkSecureContext()) {
