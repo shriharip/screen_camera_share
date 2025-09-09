@@ -175,7 +175,7 @@
             initializeApp();
         }
         
-        // DOM elements
+        // DOM elements (declared at top level)
         const startBtn = document.getElementById('startBtn');
         const captureBtn = document.getElementById('captureBtn');
         const stopBtn = document.getElementById('stopBtn');
@@ -194,8 +194,7 @@
         let availableCameras = [];
         let currentCameraId = null;
         
-        function initializeApp() {
-
+        // Utility functions (declared at top level)
         function showStatus(message, type = 'success') {
             status.innerHTML = `<div class="${type}">${message}</div>`;
         }
@@ -213,10 +212,7 @@
             return true;
         }
 
-        // Check secure context on page load
-        if (!checkSecureContext()) {
-            startBtn.disabled = true;
-        }
+        // This will be called inside initializeApp
 
         // Initialize WebSocket connection
         function initializeSocket() {
@@ -655,7 +651,16 @@
 
         // Camera switching is now handled by radio button change events
 
-            // Check server connectivity first
+        function initializeApp() {
+            console.log('🚀 Initializing app...');
+            
+            // Check secure context first
+            if (!checkSecureContext()) {
+                startBtn.disabled = true;
+                return;
+            }
+            
+            // Check server connectivity
             console.log('🚀 Checking server connectivity...');
             
             fetch('/api/photos')
